@@ -3,7 +3,7 @@
 
 from src.adapter.data import load_dataset_TriviaQA, split_dataset
 from src.domain.HugginFaceModel import instantiate_model
-from src.domain.prompt import get_make_prompt, build_prompt_from_indices
+from src.domain.prompt import get_make_prompt, build_prompt_from_indices, build_prompt_for_multi_generation
 from src.domain.metric import get_metric
 from omegaconf import DictConfig
 import random
@@ -44,12 +44,13 @@ def job(config: DictConfig) -> None:
 
     p_true_indices = random.sample(answerable_indices, config.p_true_num_fewshot)
     remaining_answerable = list(set(remaining_answerable) - set(p_true_indices))
-    p_true_few_shot_prompt, p_true_responses, len_p_true = construct_few_shot_prompt(
+    p_true_few_shot_prompt, p_true_responses, len_p_true = build_prompt_for_multi_generation(
             model=model, dataset=train_dataset, indices=p_true_indices,
             prompt=prompt, brief=BRIEF,
             brief_always=False,
             make_prompt=make_prompt, num_generations=config.num_generations,
-            metric=metric)
+            metric=metric
+    )
 
 
 
