@@ -1,3 +1,13 @@
 
 
 num_few_shot: 3
+
+model_name: "Qwen2.5-0.5B-Instruct"
+model_max_new_tokens: 100
+
+BRIEF: 'default'
+BRIEF_always: False
+
+p_true_num_fewshot: 4 # chnager les noms
+num_generations: 5 # changer les noms
+metric: 'squad' # changer les noms 
