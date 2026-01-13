@@ -13,7 +13,7 @@ import random
 import logging
 
 
-def job(config: DictConfig, return_bool: bool = True) -> None:
+def job(config: DictConfig, return_bool: bool = True) -> None: # revoir ici 
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -67,6 +67,8 @@ def job(config: DictConfig, return_bool: bool = True) -> None:
         p_true_few_shot_prompt,
         config
     )
+
+    logging.info("Dataset created")
 
     return train_generations, validation_generations, results_dict if return_bool else None
 
