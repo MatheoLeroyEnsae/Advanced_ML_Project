@@ -3,14 +3,17 @@
 
 from src.adapter.data import load_dataset_TriviaQA, split_dataset
 from src.domain.HugginFaceModel import instantiate_model
-from src.domain.prompt import get_make_prompt, build_prompt_from_indices, build_prompt_for_multi_generation
+from src.domain.prompt import (
+    get_make_prompt, build_prompt_from_indices, build_prompt_for_multi_generation
+)
 from src.domain.metric import get_metric
+from src.domain.generate_dataset_domain import generate_dataset_domain
 from omegaconf import DictConfig
 import random
 import logging
 
 
-def job(config: DictConfig) -> None:
+def job(config: DictConfig, return_bool: bool = True) -> None:
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -51,6 +54,21 @@ def job(config: DictConfig) -> None:
             make_prompt=make_prompt, num_generations=config.num_generations,
             metric=metric
     )
+
+    train_generations, validation_generations, results_dict = generate_dataset_domain(
+        train_dataset,
+        validation_dataset,
+        remaining_answerable,
+        unanswerable_indices,
+        model,
+        metric,
+        make_prompt,
+        prompt,
+        p_true_few_shot_prompt,
+        config
+    )
+
+    return train_generations, validation_generations, results_dict if return_bool else None
 
 
 

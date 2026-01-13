@@ -11,3 +11,10 @@ BRIEF_always: False
 p_true_num_fewshot: 4 # chnager les noms
 num_generations: 5 # changer les noms
 metric: 'squad' # changer les noms 
+
+get_training_set_generations: True
+temperature: 0.1
+get_training_set_generations_most_likely_only: True
+num_samples: 10
+compute_p_true: False
+p_true_hint: True
