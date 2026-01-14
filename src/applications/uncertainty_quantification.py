@@ -10,30 +10,14 @@ import numpy as np
 def job_uncertainty(train_generations, validation_generations, results_dict, config):
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-    validation_embeddings, validation_is_true, validation_answerable = [], [], []
-    p_trues = []
-    count = 0  # pylint: disable=invalid-name
-
-    # Loop over datapoints and compute validation embeddings and entropies.
-    for idx, tid in enumerate(validation_generations):
-        example = validation_generations[tid]
-        question = example['question']
-        context = example['context']
-        full_responses = example["responses"]
-        most_likely_answer = example['most_likely_answer']
-
-        if not config.use_all_generations:
-            if config.use_num_generations == -1:
-                raise ValueError
-            responses = [fr[0] for fr in full_responses[:config.use_num_generations]]
-        else:
-            responses = [fr[0] for fr in full_responses]
-
-        validation_answerable.append(is_answerable(example))
-        validation_embeddings.append(most_likely_answer['embedding'])
-        logging.info('validation_is_true: %f', validation_is_true[-1])
     
+    validation_embeddings, validation_is_true, validation_answerable = [], [], []
+    for tid in validation_generations:
+        most_likely_answer = validation_generations[tid]['most_likely_answer']
+        validation_embeddings.append(most_likely_answer['embedding'])
+        validation_is_true.append(most_likely_answer['accuracy'])
+        validation_answerable.append(is_answerable(validation_generations[tid]))
+
     validation_is_false = [1.0 - is_t for is_t in validation_is_true]
     results_dict['validation_is_false'] = validation_is_false
 
@@ -55,6 +39,14 @@ def job_uncertainty(train_generations, validation_generations, results_dict, con
     try:
         logging.info('Starting training p_ik on train embeddings.')
         # Train classifier of correct/incorrect from embeddings.
+        logging.info(len(validation_is_false))
+        logging.info("**")
+        logging.info(len(train_embeddings))
+        logging.info("**")
+        logging.info(len(validation_embeddings))
+        logging.info("**")
+        logging.info(len(train_is_false))
+        logging.info(validation_is_false)
         p_ik_predictions = supervised_approach(
             train_embeddings=train_embeddings, is_false=train_is_false,
             eval_embeddings=validation_embeddings, eval_is_false=validation_is_false)
@@ -66,16 +58,23 @@ def job_uncertainty(train_generations, validation_generations, results_dict, con
     
     entropies = defaultdict(list)
 
-    if not config.use_all_generations:
-        log_liks = [r[1] for r in full_responses[:config.use_num_generations]]
-    else:
-        log_liks = [r[1] for r in full_responses]
+    for idx, tid in enumerate(validation_generations):
+        example = validation_generations[tid]
+        question = example['question']
+        context = example['context']
+        full_responses = example["responses"]
+        most_likely_answer = example['most_likely_answer']
+
+        if not config.use_all_generations:
+            log_liks = [r[1] for r in full_responses[:config.use_num_generations]]
+        else:
+            log_liks = [r[1] for r in full_responses]
 
     # Length normalization of generation probabilities.
     log_liks_agg = [np.mean(log_lik) for log_lik in log_liks]
 
     # Compute naive entropy.
     entropies['regular_entropy'].append(naive_entropy(log_liks_agg))
-    results_dict['uncertainty_measures'].update(entropies)
+    #results_dict['uncertainty_measures'].update(entropies)
 
-    return results_dict
+    return results_dict, entropies
