@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from src.applications.generate_dataset import job
 from src.applications.uncertainty_quantification import job_uncertainty
-from settings.config_loader import load_config_from_file
+from src.settings.config_loader import load_config_from_file
 from pathlib import Path
 
 
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     CONF_DIR = ROOT_DIR / "conf"
 
     CONF_DIR = Path(__file__).resolve().parent.parent / "conf"
-    path = CONF_DIR / "config.yaml"
+    path = CONF_DIR / "conf.yaml"
 
     if not CONF_DIR.exists():
         raise FileNotFoundError(f"Config directory not found: {CONF_DIR}")

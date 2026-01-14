@@ -8,6 +8,8 @@ packages = [
     "scikit-learn",
     "datasets",
     "evaluate",
+    "omegaconf",
+    "cloudpathlib",
 ]
 
 

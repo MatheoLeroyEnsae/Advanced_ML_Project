@@ -3,7 +3,7 @@
 functions to load data
 
 """
-from datasets import Dataset, load_dataset, train_test_split
+from datasets import Dataset, load_dataset
 from typing import Optional, Tuple
 
 
@@ -20,7 +20,7 @@ def load_dataset_TriviaQA(dataset_name: str, seed: int = 42) -> Tuple[Optional[D
 
     if dataset_name == "trivia_qa":
         dataset = load_dataset('TimoImhof/TriviaQA-in-SQuAD-format')['unmodified']    
-        dataset = train_test_split(test_size=0.2, seed=seed)
+        dataset = dataset.train_test_split(test_size=0.2, seed=seed)
 
     return dataset['train'], dataset['test']
 
