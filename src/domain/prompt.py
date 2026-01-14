@@ -125,3 +125,7 @@ def build_prompt_for_multi_generation(
             break
 
     return ''.join(few_shot_prompt), all_responses, it
+
+
+def is_answerable(generation):
+    return len(generation['reference']['answers']['text']) > 0

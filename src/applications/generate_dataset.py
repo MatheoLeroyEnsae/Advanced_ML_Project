@@ -13,7 +13,7 @@ import random
 import logging
 
 
-def job(config: DictConfig, return_bool: bool = True) -> None: # revoir ici 
+def job(config: DictConfig, return_bool: bool = True):  # revoir ici 
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
