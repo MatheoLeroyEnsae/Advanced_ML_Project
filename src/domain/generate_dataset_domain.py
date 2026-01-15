@@ -86,7 +86,7 @@ def generate_dataset_domain(
                 # Only compute accuracy if question is answerable.
                 compute_acc = True or (i == 0)
                 if correct_answer and compute_acc:
-                    acc = metric(predicted_answer, example, model)
+                    acc = metric(predicted_answer, example)
                 else:
                     acc = 0.0  # pylint: disable=invalid-name
 

@@ -14,18 +14,16 @@ def get_make_prompt() -> Callable[[Optional[str], str, Optional[str], str, bool]
         brief: str,
         brief_always: bool
     ) -> str:
+        parts = [brief] if brief_always else []
 
-        prompt = ''
-        if brief_always:
-            prompt += brief
-        if (context is not None):
-            prompt += f"Context: {context}\n"
-        prompt += f"Question: {question}\n"
-        if answer:
-            prompt += f"Answer: {answer}\n\n"
-        else:
-            prompt += 'Answer:'
-        return prompt
+        if context:
+            parts.append(f"Context: {context}")
+
+        parts.append(f"Question: {question}")
+
+        parts.append(f"Answer: {answer}" if answer else "Answer:")
+
+        return "\n".join(parts) + ("\n\n" if answer else "")
 
     return make_prompt
 
@@ -38,18 +36,18 @@ def build_prompt_from_indices(
     make_prompt: Callable[[Optional[str], str, Optional[str], str, bool], str]
 ) -> str:
     """Given a dataset and indices, construct a fewshot prompt."""
-    prompt = brief if not brief_always else ''
+    prompt_parts = [
+        make_prompt(
+            context=dataset[i]["context"],
+            question=dataset[i]["question"],
+            answer=dataset[i]["answers"]["text"][0],
+            brief=brief,
+            brief_always=brief_always
+        )
+        for i in prompt_indices
+    ]
 
-    for instance_index in prompt_indices:
-
-        instance = dataset[instance_index]
-        context = instance["context"]
-        question = instance["question"]
-        answer = instance["answers"]["text"][0]
-
-        prompt = prompt + make_prompt(context, question, answer, brief, brief_always)
-
-    return prompt
+    return "".join(prompt_parts)
 
 
 def get_reference(example):
@@ -97,7 +95,7 @@ def build_prompt_for_multi_generation(
             if j == 0:
                 # Save most likely response and compute correctness metric for it.
                 most_likely_response = response
-                is_correct = metric(response, example, model)
+                is_correct = metric(response, example)
                 answers = [answer for answer in example['answers']['text']]
                 logging.info('P_TRUE >> LOW-T >> true answer: '.ljust(35) + str(answers))
                 logging.info('P_TRUE >> LOW-T >> acc: '.ljust(35) + str(is_correct))
