@@ -60,9 +60,9 @@ def get_reference(example):
 
 def build_prompt_for_multi_generation(
         *, model, dataset, indices, prompt, instruction, include_instruction, make_prompt,
-        num_generations, metric):
-    """Construct few shot prompt for p_true uncertainty metric."""
-    few_shot_prompt = []
+        n_prediction, metric):
+    """Build few  prompt for p_true uncertainty metric."""
+    few_prompts_list = []
     all_answers = dict()
     for index, value in enumerate(indices):
         prompt_list = []
@@ -77,7 +77,7 @@ def build_prompt_for_multi_generation(
         local_prompt = prompt + question_prompt
 
         responses = []
-        for j in range(num_generations + 1):
+        for j in range(n_prediction + 1):
 
             if j == 0:
                 temperature = 0.1
@@ -85,7 +85,7 @@ def build_prompt_for_multi_generation(
                 temperature = 1.0
 
             response, _, _ = model.predict(local_prompt, temperature)
-            logging.info('P_TRUE >> Current Response: '.ljust(25) + response)
+            logging.info('P_TRUE > Response: '.ljust(25) + response)
 
             responses.append(response)
             prompt_list += [f'{response.strip()} \n']
@@ -93,8 +93,8 @@ def build_prompt_for_multi_generation(
                 most_likely_response = response
                 is_correct = metric(response, example)
                 answers = [answer for answer in example['answers']['text']]
-                logging.info('P_TRUE >> LOW-T >> true answer: '.ljust(35) + str(answers))
-                logging.info('P_TRUE >> LOW-T >> acc: '.ljust(35) + str(is_correct))
+                logging.info('P_TRUE > LOW-T > true answer: '.ljust(35) + str(answers))
+                logging.info('P_TRUE > LOW-T > accuracy: '.ljust(35) + str(is_correct))
 
         all_answers[value] = dict(
             responses=responses, most_likely_response=most_likely_response,
@@ -107,18 +107,16 @@ def build_prompt_for_multi_generation(
         prompt_list += ['The possible answer is:']
         prompt_list += [' A' if is_correct else ' B']
 
-        prompt_len = len(model.tokenizer.encode(''.join(few_shot_prompt + prompt_list)))
-        # At test time, get a maximum of `num_generations * model.token_limit` extra tokens
-        # 200 buffer for question and 'Possible Answer'.
-        max_input_len = prompt_len + num_generations * model.max_new_tokens + 200
+        prompt_len = len(model.tokenizer.encode(''.join(few_prompts_list + prompt_list)))
+        input_len_max = prompt_len + n_prediction * model.max_new_tokens + 200
 
-        if max_input_len < model.token_limit:
-            few_shot_prompt.extend(prompt_list)
+        if input_len_max < model.token_limit:
+            few_prompts_list.extend(prompt_list)
         else:
             logging.warning('p_true prompt truncated (length limit) at %d.', index)
             break
 
-    return ''.join(few_shot_prompt), all_answers, index
+    return ''.join(few_prompts_list), all_answers, index
 
 
 def is_answerable(generation):

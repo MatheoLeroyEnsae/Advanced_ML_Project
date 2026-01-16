@@ -53,7 +53,7 @@ def job(config: DictConfig, return_bool: bool = True):  # revoir ici
             model=model, dataset=train_dataset, indices=p_true_indices,
             prompt=prompt, instruction=instruction,
             include_instruction=config.include_instruction,
-            make_prompt=make_prompt, num_generations=config.num_generations,
+            make_prompt=make_prompt, n_prediction=config.n_prediction,
             metric=metric
     )
 

@@ -9,10 +9,10 @@ instruction: 'default'
 include_instruction: False
 
 p_true_num_fewshot: 4 # chnager les noms
-num_generations: 5 # changer les noms
+n_prediction: 5 
 metric: 'squad' 
 
-temperature: 0.1
+temperature: 1
 get_training_set_generations_most_likely_only: True
 num_samples: 100
 compute_p_true: False

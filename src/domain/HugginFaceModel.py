@@ -218,8 +218,6 @@ class HuggingfaceModel(BaseModel):
 
         input_data += ' A'
         tokenized_prompt_true = self.tokenizer(input_data, return_tensors='pt').to('cuda')['input_ids']
-        # The computation of the negative log likelihoods follows:
-        # https://huggingface.co/docs/transformers/perplexity.
 
         target_ids_true = tokenized_prompt_true.clone()
         # Set all target_ids except the last one to -100.

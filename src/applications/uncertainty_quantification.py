@@ -13,6 +13,7 @@ def job_uncertainty(train_generations, validation_generations, results_dict, con
     
     validation_embeddings, validation_is_true, validation_answerable = [], [], []
     for tid in validation_generations:
+        
         most_likely_answer = validation_generations[tid]['most_likely_answer']
         validation_embeddings.append(most_likely_answer['embedding'])
         validation_is_true.append(most_likely_answer['accuracy'])
