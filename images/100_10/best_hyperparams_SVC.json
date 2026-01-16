@@ -1,2 +1,8 @@
 {
-    "clf": 
+    "clf": "SVC",
+    "clf__C": 0.1,
+    "clf__gamma": "auto",
+    "clf__kernel": "rbf",
+    "pca": "pca",
+    "model": "SVC"
+}

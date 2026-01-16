@@ -29,8 +29,5 @@ if __name__ == '__main__':
 
     config = load_config_from_file(path)
     train_generations, validation_generations, results_dict = job(config=config, return_bool=True)
-    results_dict, entropies = job_uncertainty(train_generations, validation_generations, results_dict, config)
-
-    #print(results_dict)
-    #print("****")
-    #print(entropies)
+    results_dict, entropies = job_uncertainty(
+        train_generations, validation_generations, results_dict, config)

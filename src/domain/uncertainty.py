@@ -44,7 +44,11 @@ def supervised_approach_grid_CV(
     n_features_to_keep = config.n_features_to_keep
     if X_train_full.shape[1] > n_features_to_keep:
         X_train_full = X_train_full[:, :n_features_to_keep]
-        logging.info("Selected first %d features, new X_train_full shape: %s", n_features_to_keep, X_train_full.shape)
+        logging.info(
+            "Selected first %d features, new X_train_full shape: %s", 
+            n_features_to_keep, X_train_full.shape
+        )
+        
     else:
         logging.info("Number of features <= %d, keeping all features", n_features_to_keep)
     
@@ -127,6 +131,8 @@ def supervised_approach_grid_CV(
     best_hyperparams['model'] = model_name
     if 'clf' in best_hyperparams:
         best_hyperparams['clf'] = best_hyperparams['clf'].__class__.__name__
+    if 'pca' in best_hyperparams:
+        best_hyperparams['pca'] = 'pca'
     best_hyperparams = make_json_serializable(best_hyperparams)
 
     hyperparam_file = os.path.join(output_dir, f"best_hyperparams_{model_name}.json")
