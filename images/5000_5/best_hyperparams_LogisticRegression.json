@@ -1,0 +1,7 @@
+{
+    "clf": "LogisticRegression",
+    "clf__C": 1.0,
+    "pca": "pcaà.7",
+    "model": "LogisticRegression",
+    "Metric": {"'acc_train'": 0.64275, "'auroc_train'": 0.5302255686576797, "'acc_test'": 0.673, "'auroc_test'": 0.5149429047898179, "'acc_eval'": 0.6408588158750813, "'auroc_eval'": 0.5230936879276098}
+}

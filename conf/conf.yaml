@@ -22,7 +22,7 @@ p_true_hint: True
 use_all_generations: False
 use_num_generations: 1
 
-n_features_to_keep: 10
+n_features_to_keep: 800
 param_grid:
   - pca: ["PCA_0.90", "PCA_0.70", "passthrough"]
     clf: ["LogisticRegression"]

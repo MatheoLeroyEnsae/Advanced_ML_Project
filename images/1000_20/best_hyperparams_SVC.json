@@ -1,0 +1,9 @@
+{
+    "clf": "SVC",
+    "clf__C": 1.0,
+    "clf__gamma": "auto",
+    "clf__kernel": "rbf",
+    "pca": "pca 0.7",
+    "model": "SVC",
+    "Metrics": {"'acc_train'": 0.76625, "'auroc_train'": 0.9204654050321222, "'acc_test'": 0.64, "'auroc_test'": 0.5847439236111112, "'acc_eval'": 0.636, "'auroc_eval'": 0.5334360811065234}
+}

@@ -1,0 +1,6 @@
+{
+    "clf": "LogisticRegression",
+    "clf__C": 0.1,
+    "pca": "pca0.7",
+    "model": "LogisticRegression"
+}

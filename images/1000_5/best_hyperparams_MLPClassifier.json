@@ -1,0 +1,13 @@
+{
+    "clf": "MLPClassifier",
+    "clf__activation": "relu",
+    "clf__alpha": 0.001,
+    "clf__hidden_layer_sizes": [
+        16,
+        8
+    ],
+    "clf__max_iter": 500,
+    "pca": "pca",
+    "model": "MLPClassifier",
+    "overall_acc": {"acc_train": 0.69125, "acc_eval": 0.61, "acc_test": 0.59, "overall":0.64}
+}
