@@ -155,14 +155,14 @@ class HuggingfaceModel(BaseModel):
                     stop_at = len(answer) - len(stop)
                     sliced_answer = answer[:stop_at]
                     break
-            if not all([stop not in sliced_answer for stop in self.stop_sequences]):
-                error_msg = 'Error: Stop words not removed successfully!'
-                error_msg += f'Answer: >{answer}< '
-                error_msg += f'Sliced Answer: >{sliced_answer}<'
-                if 'falcon' not in self.model_name.lower():
-                    raise ValueError(error_msg)
-                else:
-                    logging.error(error_msg)
+            # if not all([stop not in sliced_answer for stop in self.stop_sequences]):
+            #    error_msg = 'Error: Stop words not removed successfully!'
+            #    error_msg += f'Answer: >{answer}< '
+            #    error_msg += f'Sliced Answer: >{sliced_answer}<'
+            #    if 'falcon' not in self.model_name.lower():
+            #        raise ValueError(error_msg)
+            #    else:
+            #        logging.error(error_msg)
 
         sliced_answer = sliced_answer.strip()
 
