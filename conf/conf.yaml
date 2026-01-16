@@ -15,31 +15,52 @@ metric: 'squad'
 temperature: 1
 several_temp: False
 get_training_set_generations_most_likely_only: True
-num_samples: 1000
+num_samples: 5000
 compute_p_true: False
 p_true_hint: True
 
 use_all_generations: False
 use_num_generations: 1
 
-n_features_to_keep: 800
+n_features_to_keep: 20
 param_grid:
-  - pca: ["PCA_0.90", "PCA_0.70", "passthrough"]
+  # --------------------
+  # Logistic Regression
+  # --------------------
+  - pca: ["PCA_0.90", "PCA_0.80", "PCA_0.70", "PCA_0.60", "passthrough"]
     clf: ["LogisticRegression"]
-    clf__C: [0.1, 1.0]
-  - pca: ["PCA_0.90", "PCA_0.70"]
+    clf__C: [0.01, 0.1, 1.0, 10.0]
+    clf__penalty: ["l2"]
+    clf__solver: ["lbfgs"]
+
+  # -----
+  # SVC
+  # -----
+  - pca: ["PCA_0.90", "PCA_0.80", "PCA_0.70", "PCA_0.60"]
     clf: ["SVC"]
-    clf__C: [0.1, 1.0]
+    clf__C: [0.01, 0.1, 1.0, 10.0]
     clf__kernel: ["linear", "rbf"]
-    clf__gamma: ["auto"]
+    clf__gamma: ["scale", "auto"]
+    clf__class_weight: [null, "balanced"]
+
+  # -----------------------
+  # Cosine Similarity SVM
+  # -----------------------
   - pca: ["passthrough"]
     clf: ["CosineSVM"]
-    clf__C: [0.1, 1.0]
+    clf__C: [0.01, 0.1, 1.0, 10.0]
+
+  # -----
+  # MLP
+  # -----
   - pca: ["passthrough"]
     clf: ["MLPClassifier"]
-    clf__hidden_layer_sizes: 
-      - [8]       
-      - [16, 8]
+    clf__hidden_layer_sizes:
+      - [8]
+      - [8, 4]
+      - [4]
     clf__activation: ["relu"]
-    clf__alpha: [0.0001, 0.001]
-    clf__max_iter: [500]
+    clf__alpha: [0.001, 0.01, 0.1]   # ⬅ régularisation BEAUCOUP plus forte
+    clf__max_iter: [1500]
+    clf__early_stopping: [true]
+
