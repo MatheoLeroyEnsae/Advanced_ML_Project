@@ -15,34 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neural_network import MLPClassifier
 import os
 import json
-
-
-def calculate_p_true(
-        model, question, most_probable_answer, brainstormed_answers,
-        few_shot_prompt, hint=False):
-    """Calculate p_true uncertainty metric."""
-
-    if few_shot_prompt:
-        prompt = few_shot_prompt + '\n'
-    else:
-        prompt = ''
-
-    prompt += 'Question: ' + question
-    prompt += '\nBrainstormed Answers: '
-    for answer in brainstormed_answers + [most_probable_answer]:
-        prompt += answer.strip() + '\n'
-    prompt += 'Possible answer: ' + most_probable_answer + '\n'
-    if not hint:
-        prompt += 'Is the possible answer:\n'
-        prompt += 'A) True\n'
-        prompt += 'B) False\n'
-        prompt += 'The possible answer is:'
-    else:
-        prompt += 'Do the brainstormed answers match the possible answer? Respond with A if they do, if they do not respond with B. Answer:'
-
-    log_prob = model.get_p_true(prompt)
-
-    return log_prob
+from omegaconf import ListConfig, DictConfig
 
 
 def naive_entropy(log_probs):
@@ -94,7 +67,7 @@ def supervised_approach_grid_CV(
     param_grid = build_param_grid(config.param_grid)
     logging.info("Hyperparameters: %s", param_grid)
 
-    grid = GridSearchCV(pipe, param_grid, cv=3, scoring='roc_auc', n_jobs=-1)
+    grid = GridSearchCV(pipe, param_grid, cv=3, scoring='roc_auc', n_jobs=-1, verbose=1)
     grid.fit(X_train, y_train)
 
     logging.info("Best params: %s", grid.best_params_)
@@ -148,14 +121,17 @@ def supervised_approach_grid_CV(
         plt.ylabel('True Positive Rate')
         plt.savefig(os.path.join(output_dir, f'roc_curve_{name}_{n_features_to_keep}_{config.num_samples}.png'))
         plt.close()
-
+    
     model_name = best_model.named_steps['clf'].__class__.__name__
     best_hyperparams = grid.best_params_.copy()  
     best_hyperparams['model'] = model_name
+    if 'clf' in best_hyperparams:
+        best_hyperparams['clf'] = best_hyperparams['clf'].__class__.__name__
+    best_hyperparams = make_json_serializable(best_hyperparams)
+
     hyperparam_file = os.path.join(output_dir, f"best_hyperparams_{model_name}.json")
     with open(hyperparam_file, "w") as f:
         json.dump(best_hyperparams, f, indent=4)
-
 
     plt.figure(figsize=(6, 4))
     for name, (X, y) in splits.items():
@@ -271,3 +247,44 @@ def build_param_grid(yaml_grid):
         grid.append(new_g)
 
     return grid
+
+
+def calculate_p_true(
+        model, question, most_probable_answer, brainstormed_answers,
+        few_shot_prompt, hint=False):
+    """Calculate p_true uncertainty metric."""
+
+    if few_shot_prompt:
+        prompt = few_shot_prompt + '\n'
+    else:
+        prompt = ''
+
+    prompt += 'Question: ' + question
+    prompt += '\nBrainstormed Answers: '
+    for answer in brainstormed_answers + [most_probable_answer]:
+        prompt += answer.strip() + '\n'
+    prompt += 'Possible answer: ' + most_probable_answer + '\n'
+    if not hint:
+        prompt += 'Is the possible answer:\n'
+        prompt += 'A) True\n'
+        prompt += 'B) False\n'
+        prompt += 'The possible answer is:'
+    else:
+        prompt += 'Do the brainstormed answers match the possible answer? Respond with A if they do, if they do not respond with B. Answer:'
+
+    log_prob = model.get_p_true(prompt)
+
+    return log_prob
+
+
+def make_json_serializable(obj):
+    if isinstance(obj, DictConfig):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, ListConfig):
+        return [make_json_serializable(v) for v in obj]
+    elif isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_serializable(v) for v in obj]
+    else:
+        return obj

@@ -1,19 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import List, Text, Any
 
-import copy
 import logging
-from collections import Counter
 import torch
 
-import accelerate
-
 from transformers import AutoTokenizer
-from transformers import AutoConfig
 from transformers import AutoModelForCausalLM
 from transformers import StoppingCriteria
 from transformers import StoppingCriteriaList
-from huggingface_hub import snapshot_download
 
 
 STOP_SEQUENCES = ['\n\n\n\n', '\n\n\n', '\n\n', '\n', 'Question:', 'Context:']
@@ -220,7 +214,6 @@ class HuggingfaceModel(BaseModel):
         tokenized_prompt_true = self.tokenizer(input_data, return_tensors='pt').to('cuda')['input_ids']
 
         target_ids_true = tokenized_prompt_true.clone()
-        # Set all target_ids except the last one to -100.
         target_ids_true[0, :-1] = -100
 
         with torch.no_grad():

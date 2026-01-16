@@ -1,0 +1,5 @@
+{
+    "clf": "MLPClassifier",
+    "clf__activation": "relu",
+    "clf__alpha": 0.0001,
+    "clf__hidden_layer_sizes": 
