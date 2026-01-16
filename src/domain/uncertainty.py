@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
 import logging
 import torch
+from typing import Any, Tuple, List
+from src.domain.prompt import is_answerable
 
 
 def calculate_p_true(
@@ -42,47 +44,36 @@ def naive_entropy(log_probs):
         `E[-log p(x)] ~= -1/N sum_i log p(x_i)`, i.e. the average token likelihood.
     """
 
-    return -np.sum(log_probs) / len(log_probs)
+    return -np.mean(log_probs)
 
 
 def supervised_approach(train_embeddings, is_false, eval_embeddings=None, eval_is_false=None):
     """Fit linear classifier to embeddings to predict model correctness."""
 
-    logging.info('Accuracy of model on Task: %f.', 1 - torch.tensor(is_false).mean())  # pylint: disable=no-member
+    logging.info('Accuracy of model on Task: %f.', 1 - torch.tensor(is_false).mean())
 
-    # Convert the list of tensors to a 2D tensor.
-    train_embeddings_tensor = torch.cat(train_embeddings, dim=0)  # pylint: disable=no-member
-    # Convert the tensor to a numpy array.
+    train_embeddings_tensor = torch.cat(train_embeddings, dim=0)
     embeddings_array = train_embeddings_tensor.cpu().numpy()
 
-    # Split the data into training and test sets.
-    X_train, X_test, y_train, y_test = train_test_split(  # pylint: disable=invalid-name
-        embeddings_array, is_false, test_size=0.2, random_state=42)  # pylint: disable=invalid-name
+    X_train, X_test, y_train, y_test = train_test_split(  
+        embeddings_array, is_false, test_size=0.2, random_state=42)
 
-    # Fit a logistic regression model.
     model = LogisticRegression()
     model.fit(X_train, y_train)
 
-    # Predict deterministically and probabilistically and compute accuracy and auroc for all splits.
-    X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()  # pylint: disable=no-member,invalid-name
+    X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()
     y_eval = eval_is_false
 
-    Xs = [X_train, X_test, X_eval]  # pylint: disable=invalid-name
-    ys = [y_train, y_test, y_eval]  # pylint: disable=invalid-name
+    Xs = [X_train, X_test, X_eval] 
+    ys = [y_train, y_test, y_eval]
     suffixes = ['train_train', 'train_test', 'eval']
 
     metrics, y_preds_proba = {}, {}
 
-    for suffix, X, y_true in zip(suffixes, Xs, ys):  # pylint: disable=invalid-name
-
-        # If suffix is eval, we fit a new model on the entire training data set
-        # rather than just a split of the training data set.
+    for suffix, X, y_true in zip(suffixes, Xs, ys):
         if suffix == 'eval':
             model = LogisticRegression()
             model.fit(embeddings_array, is_false)
-            convergence = {
-                'n_iter': model.n_iter_[0],
-                'converged': (model.n_iter_ < model.max_iter)[0]}
 
         y_pred = model.predict(X)
         y_pred_proba = model.predict_proba(X)
@@ -168,3 +159,39 @@ def supervised_approach_2(train_embeddings, is_false, eval_embeddings=None, eval
         y_pred_proba_eval = None
 
     return y_pred_proba_eval
+
+
+def build_embeddings(
+    generations: Any,
+    split_name: str,
+    results_dict: Any
+) -> Tuple[List[Any], List[float]]:
+    """
+    Build embeddings, accuracy, and answerable lists for a dataset split
+    and update results_dict with is_false and unanswerable measures.
+    
+    Returns:
+        embeddings: list of embeddings
+        is_true: list of accuracies
+    """
+    embeddings, is_true, answerable = [], [], []
+
+    for id_question in generations:
+        most_likely_answer = generations[id_question]['most_likely_answer']
+        embeddings.append(most_likely_answer['embedding'])
+        is_true.append(most_likely_answer['accuracy'])
+        answerable.append(is_answerable(generations[id_question]))
+    
+    is_false = [1.0 - val for val in is_true]
+    unanswerable = [1.0 - val for val in answerable]
+
+    results_dict[f'{split_name}_is_false'] = is_false
+    results_dict[f'{split_name}_unanswerable'] = unanswerable
+
+    logging.info(
+        'Proportion of %s that cannot be answered: %f',
+        split_name,
+        np.mean(unanswerable)
+    )
+
+    return embeddings, is_false
