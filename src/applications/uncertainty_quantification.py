@@ -1,7 +1,9 @@
 """
 """
 import logging
-from src.domain.uncertainty import naive_entropy, supervised_approach, build_embeddings
+from src.domain.uncertainty import (
+    naive_entropy, supervised_approach, build_embeddings, supervised_approach_grid_CV
+)
 from collections import defaultdict
 
 
@@ -19,8 +21,8 @@ def job_uncertainty(train_generations, validation_generations, results_dict, con
 
     try:
         logging.info('Training classifier on train embeddings.')
-        probabilities = supervised_approach(
-            train_embeddings=train_embeddings, is_false=train_is_false,
+        probabilities = supervised_approach_grid_CV(
+            train_embeddings=train_embeddings, is_false=train_is_false, config=config,
             eval_embeddings=validation_embeddings, eval_is_false=validation_is_false)
         results_dict['uncertainty_measures']['p_supervised'] = probabilities
         logging.info('classifier is trained')

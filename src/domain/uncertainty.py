@@ -116,7 +116,10 @@ def supervised_approach_grid_CV(
         ('clf', LogisticRegression()) 
     ])
 
-    grid = GridSearchCV(pipe, config.param_grid, cv=3, scoring='roc_auc', n_jobs=-1)
+    param_grid = build_param_grid(config.param_grid)
+    logging.info("Hyperparameters", param_grid)
+
+    grid = GridSearchCV(pipe, param_grid, cv=3, scoring='roc_auc', n_jobs=-1)
     grid.fit(X_train, y_train)
 
     logging.info("Best params: %s", grid.best_params_)
@@ -297,3 +300,35 @@ class CosineSVM(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X):
         K_test = cosine_similarity(X, self.X_train_)
         return self.model_.predict_proba(K_test)
+
+
+def build_param_grid(yaml_grid):
+    grid = []
+    for g in yaml_grid:
+        new_g = {}
+        pca_list = []
+        for p in g['pca']:
+            if p.startswith("PCA_"):
+                var = float(p.split("_")[1])
+                pca_list.append(PCA(n_components=var))
+            elif p == 'passthrough':
+                pca_list.append('passthrough')
+        new_g['pca'] = pca_list
+
+        clf_list = []
+        for c in g['clf']:
+            if c == 'LogisticRegression':
+                clf_list.append(LogisticRegression(max_iter=1000))
+            elif c == 'SVC':
+                clf_list.append(SVC(probability=True))
+            elif c == 'CosineSVM':
+                clf_list.append(CosineSVM())
+        new_g['clf'] = clf_list
+
+        for k, v in g.items():
+            if k not in ['pca', 'clf']:
+                new_g[k] = v
+
+        grid.append(new_g)
+    return grid
+
