@@ -2,7 +2,7 @@
 """
 import logging
 from src.domain.uncertainty import (
-    naive_entropy, supervised_approach, build_embeddings, supervised_approach_grid_CV
+    naive_entropy, build_embeddings, supervised_approach_grid_CV
 )
 from collections import defaultdict
 

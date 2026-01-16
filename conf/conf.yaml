@@ -44,3 +44,4 @@ param_grid:
     clf__alpha: [0.0001, 0.001]
     clf__max_iter: [500]
 
+experience_name: "n_samples_100_n_features_20"

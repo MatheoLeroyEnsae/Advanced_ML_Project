@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neural_network import MLPClassifier
+import os
 
 
 def calculate_p_true(
@@ -54,49 +54,6 @@ def naive_entropy(log_probs):
     return -np.mean(log_probs)
 
 
-def supervised_approach(train_embeddings, is_false, eval_embeddings=None, eval_is_false=None):
-    """Fit linear classifier to embeddings to predict model correctness."""
-
-    logging.info('Accuracy of model on Task: %f.', 1 - torch.tensor(is_false).mean())
-
-    train_embeddings_tensor = torch.cat(train_embeddings, dim=0)
-    embeddings_array = train_embeddings_tensor.cpu().numpy()
-
-    X_train, X_test, y_train, y_test = train_test_split(  
-        embeddings_array, is_false, test_size=0.2, random_state=42)
-
-    model = LogisticRegression()
-    model.fit(X_train, y_train)
-
-    X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()
-    y_eval = eval_is_false
-
-    Xs = [X_train, X_test, X_eval] 
-    ys = [y_train, y_test, y_eval]
-    suffixes = ['train_train', 'train_test', 'eval']
-
-    metrics, y_preds_proba = {}, {}
-
-    for suffix, X, y_true in zip(suffixes, Xs, ys):
-        if suffix == 'eval':
-            model = LogisticRegression()
-            model.fit(embeddings_array, is_false)
-
-        y_pred = model.predict(X)
-        y_pred_proba = model.predict_proba(X)
-        y_preds_proba[suffix] = y_pred_proba
-        acc_p_ik_train = accuracy_score(y_true, y_pred)
-        auroc_p_ik_train = roc_auc_score(y_true, y_pred_proba[:, 1])
-        split_metrics = {
-            f'acc_p_ik_{suffix}': acc_p_ik_train,
-            f'auroc_p_ik_{suffix}': auroc_p_ik_train}
-        metrics.update(split_metrics)
-
-    logging.info('Metrics for p_ik classifier: %s.', metrics)
-
-    return y_preds_proba['eval'][:, 1]
-
-
 def supervised_approach_grid_CV(
     train_embeddings, is_false, config, eval_embeddings=None, eval_is_false=None
 ):
@@ -116,6 +73,12 @@ def supervised_approach_grid_CV(
         logging.info("Selected first %d features, new X_train_full shape: %s", n_features_to_keep, X_train_full.shape)
     else:
         logging.info("Number of features <= %d, keeping all features", n_features_to_keep)
+    
+    base_dir = "images"  
+    folder_name = f"{config.num_samples}_{n_features_to_keep}"  
+    output_dir = os.path.join(base_dir, folder_name)
+
+    os.makedirs(output_dir, exist_ok=True)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X_train_full, y_train_full, test_size=0.2, random_state=42
@@ -165,11 +128,14 @@ def supervised_approach_grid_CV(
         plt.figure(figsize=(6,4))
         plt.hist(y_pred_proba[y==0], bins=20, alpha=0.5, label='Class 0')
         plt.hist(y_pred_proba[y==1], bins=20, alpha=0.5, label='Class 1')
-        plt.title(f'Predicted probability distribution ({name}) - n_features {n_features_to_keep} - num_samples {config.num_samples}')
+        plt.title(
+            f'Predicted probability distribution ({name}) - n_features {n_features_to_keep} - num_samples {config.num_samples}', 
+            fontsize=10
+        )
         plt.xlabel('Predicted probability')
         plt.ylabel('Count')
         plt.legend()
-        plt.savefig(f'prob_dist_{name}_{n_features_to_keep}_{config.num_samples}.png')
+        plt.savefig(os.path.join(output_dir, f'prob_dist_{name}_{n_features_to_keep}_{config.num_samples}.png'))
         plt.close()
 
         fpr, tpr, _ = roc_curve(y, y_pred_proba)
@@ -179,9 +145,9 @@ def supervised_approach_grid_CV(
         plt.title(f'ROC Curve ({name}) - n_features {n_features_to_keep} - num_samples {config.num_samples}')
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.savefig(f'roc_curve_{name}_{n_features_to_keep}_{config.num_samples}.png')
+        plt.savefig(os.path.join(output_dir, f'roc_curve_{name}_{n_features_to_keep}_{config.num_samples}.png'))
         plt.close()
-        
+
     model_name = best_model.named_steps['clf'].__class__.__name__
 
     plt.figure(figsize=(6, 4))
@@ -196,82 +162,12 @@ def supervised_approach_grid_CV(
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.legend()
-    plt.savefig(f'roc_curve_all_{model_name}.png')
+    plt.savefig(os.path.join(output_dir, f'roc_curve_all_{model_name}_{n_features_to_keep}_{config.num_samples}.png'))
     plt.close()
 
     logging.info('Metrics: %s', metrics)
     return y_preds_proba['eval'], metrics, best_model
-
-
-def supervised_approach_2(train_embeddings, is_false, eval_embeddings=None, eval_is_false=None):
-    """
-    Fit an SVM classifier with Platt scaling (probabilities) to embeddings.
-    Hyperparameters are chosen via cross-validation (classic SVM grid search).
     
-    Args:
-        train_embeddings: list of torch tensors [n_samples, embedding_dim]
-        is_false: list/array of labels (0/1)
-        eval_embeddings: list of torch tensors for evaluation (optional)
-        eval_is_false: labels for evaluation (optional)
-    
-    Returns:
-        y_pred_proba_eval: np.array of predicted probabilities on eval set
-    """
-    
-    logging.info('Baseline accuracy on train: %.4f', 1 - torch.tensor(is_false).float().mean())
-
-    # Convert list of tensors to 2D numpy array
-    X_train_full = torch.cat(train_embeddings, dim=0).cpu().numpy()
-    y_train_full = np.array(is_false)
-
-    # Optional: split training into train/test internally
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_train_full, y_train_full, test_size=0.2, random_state=42
-    )
-
-    # 1️⃣ Define SVM with probability=True for Platt scaling
-    svm = SVC(probability=True, random_state=42)
-
-    # 2️⃣ Hyperparameter grid
-    param_grid = {
-        'C': [0.01, 0.1, 1, 10, 100],
-        'kernel': ['linear', 'rbf', 'poly'],
-        'gamma': ['scale', 'auto']  # only relevant for rbf/poly
-    }
-
-    # 3️⃣ Cross-validation grid search
-    grid = GridSearchCV(svm, param_grid, cv=5, scoring='roc_auc', n_jobs=-1)
-    grid.fit(X_train, y_train)
-
-    best_model = grid.best_estimator_
-    logging.info("Best SVM params: %s", grid.best_params_)
-
-    # 4️⃣ Evaluate on internal train/test split
-    splits = {'train': (X_train, y_train), 'test': (X_test, y_test)}
-    metrics = {}
-    for name, (X, y_true) in splits.items():
-        y_pred = best_model.predict(X)
-        y_pred_proba = best_model.predict_proba(X)[:, 1]
-        metrics[f'acc_{name}'] = accuracy_score(y_true, y_pred)
-        metrics[f'auroc_{name}'] = roc_auc_score(y_true, y_pred_proba)
-    logging.info("Metrics on internal splits: %s", metrics)
-
-    # 5️⃣ Fit on full training data for evaluation predictions
-    best_model.fit(X_train_full, y_train_full)
-
-    if eval_embeddings is not None and eval_is_false is not None:
-        X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()
-        y_eval = np.array(eval_is_false)
-        y_pred_proba_eval = best_model.predict_proba(X_eval)[:, 1]
-
-        acc_eval = accuracy_score(y_eval, best_model.predict(X_eval))
-        auroc_eval = roc_auc_score(y_eval, y_pred_proba_eval)
-        logging.info("Eval metrics: accuracy=%.4f, auroc=%.4f", acc_eval, auroc_eval)
-    else:
-        y_pred_proba_eval = None
-
-    return y_pred_proba_eval
-
 
 def build_embeddings(
     generations: Any,
@@ -309,29 +205,6 @@ def build_embeddings(
     return embeddings, is_false
 
 
-class CosineSVM(BaseEstimator, ClassifierMixin):
-    """Wrapper SVM avec kernel cosine similarity pour GridSearchCV."""
-    def __init__(self, C=1.0):
-        self.C = C
-        self.model_ = None
-        self.X_train_ = None
-
-    def fit(self, X, y):
-        self.X_train_ = X
-        K_train = cosine_similarity(X, X)
-        self.model_ = SVC(C=self.C, kernel='precomputed', probability=True)
-        self.model_.fit(K_train, y)
-        return self
-
-    def predict(self, X):
-        K_test = cosine_similarity(X, self.X_train_)
-        return self.model_.predict(K_test)
-
-    def predict_proba(self, X):
-        K_test = cosine_similarity(X, self.X_train_)
-        return self.model_.predict_proba(K_test)
-
-
 def cosine_kernel(X, Y):
     return cosine_similarity(X, Y)
 
@@ -339,56 +212,6 @@ def cosine_kernel(X, Y):
 class CosineSVM3(SVC):
     def __init__(self, C=1.0):
         super().__init__(C=C, kernel=cosine_kernel, probability=True)
-
-
-class CosineSVM2(SVC):
-    """SVM avec kernel cosine similarity."""
-    def fit(self, X, y):
-        K_train = cosine_similarity(X, X)
-        super().fit(K_train, y)
-        self.X_train_ = X
-        return self
-
-    def predict(self, X):
-        K_test = cosine_similarity(X, self.X_train_)
-        return super().predict(K_test)
-
-    def predict_proba(self, X):
-        K_test = cosine_similarity(X, self.X_train_)
-        return super().predict_proba(K_test)
-
-
-def build_param_grid2(yaml_grid):
-    grid = []
-    for g in yaml_grid:
-        new_g = {}
-        pca_list = []
-        for p in g['pca']:
-            if p.startswith("PCA_"):
-                var = float(p.split("_")[1])
-                pca_list.append(PCA(n_components=var))
-            elif p == 'passthrough':
-                pca_list.append('passthrough')
-        new_g['pca'] = pca_list
-
-        clf_list = []
-        for c in g['clf']:
-            if c == 'LogisticRegression':
-                clf_list.append(LogisticRegression(max_iter=1000))
-            elif c == 'SVC':
-                clf_list.append(SVC(probability=True))
-            elif c == 'CosineSVM':
-                clf_list.append(CosineSVM3())
-            elif c == "MLPClassifier":
-                clf_list.append(MLPClassifier())
-        new_g['clf'] = clf_list
-
-        for k, v in g.items():
-            if k not in ['pca', 'clf']:
-                new_g[k] = v
-
-        grid.append(new_g)
-    return grid
 
 
 def build_param_grid(yaml_grid):
@@ -416,7 +239,7 @@ def build_param_grid(yaml_grid):
             elif c == 'SVC':
                 clf_list.append(SVC(probability=True))
             elif c == 'CosineSVM':
-                clf_list.append(CosineSVM3())  # ton wrapper
+                clf_list.append(CosineSVM3())  
             elif c == "MLPClassifier":
                 clf_list.append(MLPClassifier())
         new_g['clf'] = clf_list
