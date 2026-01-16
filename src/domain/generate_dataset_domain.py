@@ -50,11 +50,11 @@ def generate_dataset_domain(
                 context, question, None, config.instruction, True)
             local_prompt = prompt + current_input
 
-            logging.info('Current input: '.ljust(15) + current_input)
-
             answers_high_T = []
 
             if dataset_split == 'train' and config.get_training_set_generations_most_likely_only:
+                num_generations = 1
+            elif dataset_split == 'validation' and not config.several_temp: 
                 num_generations = 1
             else:
                 num_generations = config.n_prediction + 1 
