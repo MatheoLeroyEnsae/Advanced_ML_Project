@@ -28,7 +28,7 @@ def get_make_prompt() -> Callable[[Optional[str], str, Optional[str], str, bool]
     return make_prompt
 
 
-def build_prompt_from_indices(
+def in_context_learning(
     dataset: Dataset,
     prompt_indices: list[int],
     brief: str,

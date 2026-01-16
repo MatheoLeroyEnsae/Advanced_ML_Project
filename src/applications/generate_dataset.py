@@ -4,7 +4,7 @@
 from src.adapter.data import load_dataset_TriviaQA, split_dataset
 from src.domain.HugginFaceModel import instantiate_model
 from src.domain.prompt import (
-    get_make_prompt, build_prompt_from_indices, build_prompt_for_multi_generation
+    get_make_prompt, in_context_learning, build_prompt_for_multi_generation
 )
 from src.domain.metric import get_metric
 from src.domain.generate_dataset_domain import generate_dataset_domain
@@ -37,7 +37,7 @@ def job(config: DictConfig, return_bool: bool = True):  # revoir ici
     make_prompt = get_make_prompt()
     BRIEF = BRIEF_PROMPTS[config.BRIEF]
     BRIEF_always = config.BRIEF_always
-    prompt = build_prompt_from_indices(
+    prompt = in_context_learning(
         train_dataset, prompt_indices, BRIEF, BRIEF_always, make_prompt
     )
 
