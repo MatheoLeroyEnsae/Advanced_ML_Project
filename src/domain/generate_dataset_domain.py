@@ -13,7 +13,6 @@ def generate_dataset_domain(
     train_dataset, 
     validation_dataset, 
     remaining_answerable, 
-    unanswerable_indices, 
     model,
     metric,
     make_prompt,
@@ -21,18 +20,13 @@ def generate_dataset_domain(
     p_true_few_shot_prompt,
     config
 ):
-
     for dataset_split in ['train', 'validation']:
 
-        # This will store all input data and model predictions.
         accuracies, generations, results_dict, p_trues = [], {}, {}, []
 
         if dataset_split == 'train':
-            if not config.get_training_set_generations:
-                logging.info('Skip training data.')
-                continue
             dataset = train_dataset
-            possible_indices = list(set(remaining_answerable) | set(unanswerable_indices))
+            possible_indices = remaining_answerable
 
         else:
             dataset = validation_dataset
@@ -58,7 +52,7 @@ def generate_dataset_domain(
             correct_answer = example['answers']['text']
 
             current_input = make_prompt(
-                context, question, None, config.BRIEF, True)
+                context, question, None, config.instruction, True)
             local_prompt = prompt + current_input
 
             logging.info('Current input: '.ljust(15) + current_input)

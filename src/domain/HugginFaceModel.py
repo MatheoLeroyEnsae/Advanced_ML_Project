@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Text
+from typing import List, Text, Any
 
 import copy
 import logging
@@ -231,12 +231,10 @@ class HuggingfaceModel(BaseModel):
         return -model_output_true.loss.item()
 
 
-def instantiate_model(model_name, model_max_new_tokens):
+def instantiate_model(model_name: str, gen_max_n_tokens: int) -> BaseModel:
     if 'Qwen' in model_name or 'falcon' in model_name:
-        model = HuggingfaceModel(
+        return HuggingfaceModel(
             model_name, stop_sequences='default',
-            max_new_tokens=model_max_new_tokens)
-    else:
-        model = None
-        raise ValueError(f'The model has not been implemented `{model_name}`.')
-    return model
+            max_new_tokens=gen_max_n_tokens)
+    
+    raise ValueError(f'The model has not been implemented `{model_name}`.')
