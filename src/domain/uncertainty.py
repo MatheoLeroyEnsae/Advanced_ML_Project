@@ -14,6 +14,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neural_network import MLPClassifier
 import os
+import json
 
 
 def calculate_p_true(
@@ -149,6 +150,12 @@ def supervised_approach_grid_CV(
         plt.close()
 
     model_name = best_model.named_steps['clf'].__class__.__name__
+    best_hyperparams = grid.best_params_.copy()  
+    best_hyperparams['model'] = model_name
+    hyperparam_file = os.path.join(output_dir, f"best_hyperparams_{model_name}.json")
+    with open(hyperparam_file, "w") as f:
+        json.dump(best_hyperparams, f, indent=4)
+
 
     plt.figure(figsize=(6, 4))
     for name, (X, y) in splits.items():
@@ -167,7 +174,7 @@ def supervised_approach_grid_CV(
 
     logging.info('Metrics: %s', metrics)
     return y_preds_proba['eval'], metrics, best_model
-    
+
 
 def build_embeddings(
     generations: Any,
