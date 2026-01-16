@@ -15,7 +15,7 @@ metric: 'squad'
 temperature: 1
 several_temp: False
 get_training_set_generations_most_likely_only: True
-num_samples: 20
+num_samples: 100
 compute_p_true: False
 p_true_hint: True
 

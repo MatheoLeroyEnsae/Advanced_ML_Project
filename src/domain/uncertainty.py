@@ -117,7 +117,7 @@ def supervised_approach_grid_CV(
     ])
 
     param_grid = build_param_grid(config.param_grid)
-    logging.info("Hyperparameters", param_grid)
+    logging.info("Hyperparameters: %s", param_grid)
 
     grid = GridSearchCV(pipe, param_grid, cv=3, scoring='roc_auc', n_jobs=-1)
     grid.fit(X_train, y_train)
@@ -302,6 +302,32 @@ class CosineSVM(BaseEstimator, ClassifierMixin):
         return self.model_.predict_proba(K_test)
 
 
+def cosine_kernel(X, Y):
+    return cosine_similarity(X, Y)
+
+
+class CosineSVM3(SVC):
+    def __init__(self, C=1.0):
+        super().__init__(C=C, kernel=cosine_kernel, probability=True)
+
+
+class CosineSVM2(SVC):
+    """SVM avec kernel cosine similarity."""
+    def fit(self, X, y):
+        K_train = cosine_similarity(X, X)
+        super().fit(K_train, y)
+        self.X_train_ = X
+        return self
+
+    def predict(self, X):
+        K_test = cosine_similarity(X, self.X_train_)
+        return super().predict(K_test)
+
+    def predict_proba(self, X):
+        K_test = cosine_similarity(X, self.X_train_)
+        return super().predict_proba(K_test)
+
+
 def build_param_grid(yaml_grid):
     grid = []
     for g in yaml_grid:
@@ -322,7 +348,7 @@ def build_param_grid(yaml_grid):
             elif c == 'SVC':
                 clf_list.append(SVC(probability=True))
             elif c == 'CosineSVM':
-                clf_list.append(CosineSVM())
+                clf_list.append(CosineSVM3())
         new_g['clf'] = clf_list
 
         for k, v in g.items():
