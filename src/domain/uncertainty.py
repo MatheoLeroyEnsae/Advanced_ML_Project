@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neural_network import MLPClassifier
 
 
 def calculate_p_true(
@@ -106,6 +107,16 @@ def supervised_approach_grid_CV(
     X_train_full = torch.cat(train_embeddings, dim=0).cpu().numpy()
     y_train_full = np.array(is_false)
 
+    logging.info(
+        "X_train_full shape: %s, y_train_full shape: %s", X_train_full.shape, y_train_full.shape)
+
+    n_features_to_keep = config.n_features_to_keep
+    if X_train_full.shape[1] > n_features_to_keep:
+        X_train_full = X_train_full[:, :n_features_to_keep]
+        logging.info("Selected first %d features, new X_train_full shape: %s", n_features_to_keep, X_train_full.shape)
+    else:
+        logging.info("Number of features <= %d, keeping all features", n_features_to_keep)
+
     X_train, X_test, y_train, y_test = train_test_split(
         X_train_full, y_train_full, test_size=0.2, random_state=42
     )
@@ -128,6 +139,8 @@ def supervised_approach_grid_CV(
     if eval_embeddings is not None:
         X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()
         y_eval = np.array(eval_is_false)
+    if X_eval.shape[1] > n_features_to_keep:
+        X_eval = X_eval[:, :n_features_to_keep]
     else:
         X_eval, y_eval = X_test, y_test
 
@@ -152,22 +165,39 @@ def supervised_approach_grid_CV(
         plt.figure(figsize=(6,4))
         plt.hist(y_pred_proba[y==0], bins=20, alpha=0.5, label='Class 0')
         plt.hist(y_pred_proba[y==1], bins=20, alpha=0.5, label='Class 1')
-        plt.title(f'Predicted probability distribution ({name})')
+        plt.title(f'Predicted probability distribution ({name}) - n_features {n_features_to_keep} - num_samples {config.num_samples}')
         plt.xlabel('Predicted probability')
         plt.ylabel('Count')
         plt.legend()
-        plt.savefig(f'prob_dist_{name}.png')  # Enregistre la figure
+        plt.savefig(f'prob_dist_{name}_{n_features_to_keep}_{config.num_samples}.png')
         plt.close()
 
         fpr, tpr, _ = roc_curve(y, y_pred_proba)
         plt.figure(figsize=(6, 4))
         plt.plot(fpr, tpr, label=f'AUC = {auc:.3f}')
         plt.plot([0, 1], [0, 1], '--', color='gray')
-        plt.title(f'ROC Curve ({name})')
+        plt.title(f'ROC Curve ({name}) - n_features {n_features_to_keep} - num_samples {config.num_samples}')
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.savefig(f'roc_curve_{name}.png')
+        plt.savefig(f'roc_curve_{name}_{n_features_to_keep}_{config.num_samples}.png')
         plt.close()
+        
+    model_name = best_model.named_steps['clf'].__class__.__name__
+
+    plt.figure(figsize=(6, 4))
+    for name, (X, y) in splits.items():
+        y_pred_proba = y_preds_proba[name]
+        fpr, tpr, _ = roc_curve(y, y_pred_proba)
+        auc = roc_auc_score(y, y_pred_proba)
+        plt.plot(fpr, tpr, label=f'{model_name} ({name}) AUC={auc:.3f}')
+
+    plt.plot([0, 1], [0, 1], '--', color='gray')
+    plt.title('ROC Curves for all splits')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.legend()
+    plt.savefig(f'roc_curve_all_{model_name}.png')
+    plt.close()
 
     logging.info('Metrics: %s', metrics)
     return y_preds_proba['eval'], metrics, best_model
@@ -328,7 +358,7 @@ class CosineSVM2(SVC):
         return super().predict_proba(K_test)
 
 
-def build_param_grid(yaml_grid):
+def build_param_grid2(yaml_grid):
     grid = []
     for g in yaml_grid:
         new_g = {}
@@ -349,6 +379,8 @@ def build_param_grid(yaml_grid):
                 clf_list.append(SVC(probability=True))
             elif c == 'CosineSVM':
                 clf_list.append(CosineSVM3())
+            elif c == "MLPClassifier":
+                clf_list.append(MLPClassifier())
         new_g['clf'] = clf_list
 
         for k, v in g.items():
@@ -358,3 +390,54 @@ def build_param_grid(yaml_grid):
         grid.append(new_g)
     return grid
 
+
+def build_param_grid(yaml_grid):
+    """
+    
+    """
+    grid = []
+
+    for g in yaml_grid:
+        new_g = {}
+
+        pca_list = []
+        for p in g.get('pca', []):
+            if isinstance(p, str) and p.startswith("PCA_"):
+                var = float(p.split("_")[1])
+                pca_list.append(PCA(n_components=var))
+            elif p == 'passthrough':
+                pca_list.append('passthrough')
+        new_g['pca'] = pca_list
+
+        clf_list = []
+        for c in g.get('clf', []):
+            if c == 'LogisticRegression':
+                clf_list.append(LogisticRegression(max_iter=1000))
+            elif c == 'SVC':
+                clf_list.append(SVC(probability=True))
+            elif c == 'CosineSVM':
+                clf_list.append(CosineSVM3())  # ton wrapper
+            elif c == "MLPClassifier":
+                clf_list.append(MLPClassifier())
+        new_g['clf'] = clf_list
+
+        for k, v in g.items():
+            if k in ['pca', 'clf']:
+                continue
+            if k == 'clf__hidden_layer_sizes':
+                new_values = []
+                for val in v:
+                    if isinstance(val, str):
+                        try:
+                            new_values.append(eval(val))  
+                        except Exception as e:
+                            raise ValueError(f"Impossible de parser hidden_layer_sizes: {val}") from e
+                    else:
+                        new_values.append(val)
+                new_g[k] = new_values
+            else:
+                new_g[k] = v
+
+        grid.append(new_g)
+
+    return grid
