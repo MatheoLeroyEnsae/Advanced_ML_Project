@@ -1,12 +1,18 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC
 import logging
 import torch
 from typing import Any, Tuple, List
 from src.domain.prompt import is_answerable
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def calculate_p_true(
@@ -87,8 +93,81 @@ def supervised_approach(train_embeddings, is_false, eval_embeddings=None, eval_i
 
     logging.info('Metrics for p_ik classifier: %s.', metrics)
 
-    # Return model predictions on the eval set.
     return y_preds_proba['eval'][:, 1]
+
+
+def supervised_approach_grid_CV(
+    train_embeddings, is_false, config, eval_embeddings=None, eval_is_false=None
+):
+    """Fit classifier (LogisticRegression or SVM) with optional PCA and plot results."""
+
+    logging.info('Accuracy of model on Task: %f.', 1 - torch.tensor(is_false).mean())
+
+    X_train_full = torch.cat(train_embeddings, dim=0).cpu().numpy()
+    y_train_full = np.array(is_false)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_train_full, y_train_full, test_size=0.2, random_state=42
+    )
+
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),  
+        ('pca', PCA()), 
+        ('clf', LogisticRegression()) 
+    ])
+
+    grid = GridSearchCV(pipe, config.param_grid, cv=3, scoring='roc_auc', n_jobs=-1)
+    grid.fit(X_train, y_train)
+
+    logging.info("Best params: %s", grid.best_params_)
+    best_model = grid.best_estimator_
+
+    if eval_embeddings is not None:
+        X_eval = torch.cat(eval_embeddings, dim=0).cpu().numpy()
+        y_eval = np.array(eval_is_false)
+    else:
+        X_eval, y_eval = X_test, y_test
+
+    splits = {
+        'train': (X_train, y_train),
+        'test': (X_test, y_test),
+        'eval': (X_eval, y_eval)
+    }
+
+    metrics = {}
+    y_preds_proba = {}
+
+    for name, (X, y) in splits.items():
+        y_pred = best_model.predict(X)
+        y_pred_proba = best_model.predict_proba(X)[:, 1]
+        y_preds_proba[name] = y_pred_proba
+
+        acc = accuracy_score(y, y_pred)
+        auc = roc_auc_score(y, y_pred_proba)
+        metrics.update({f'acc_{name}': acc, f'auroc_{name}': auc})
+
+        plt.figure(figsize=(6,4))
+        plt.hist(y_pred_proba[y==0], bins=20, alpha=0.5, label='Class 0')
+        plt.hist(y_pred_proba[y==1], bins=20, alpha=0.5, label='Class 1')
+        plt.title(f'Predicted probability distribution ({name})')
+        plt.xlabel('Predicted probability')
+        plt.ylabel('Count')
+        plt.legend()
+        plt.savefig(f'prob_dist_{name}.png')  # Enregistre la figure
+        plt.close()
+
+        fpr, tpr, _ = roc_curve(y, y_pred_proba)
+        plt.figure(figsize=(6, 4))
+        plt.plot(fpr, tpr, label=f'AUC = {auc:.3f}')
+        plt.plot([0, 1], [0, 1], '--', color='gray')
+        plt.title(f'ROC Curve ({name})')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.savefig(f'roc_curve_{name}.png')
+        plt.close()
+
+    logging.info('Metrics: %s', metrics)
+    return y_preds_proba['eval'], metrics, best_model
 
 
 def supervised_approach_2(train_embeddings, is_false, eval_embeddings=None, eval_is_false=None):
@@ -195,3 +274,26 @@ def build_embeddings(
     )
 
     return embeddings, is_false
+
+
+class CosineSVM(BaseEstimator, ClassifierMixin):
+    """Wrapper SVM avec kernel cosine similarity pour GridSearchCV."""
+    def __init__(self, C=1.0):
+        self.C = C
+        self.model_ = None
+        self.X_train_ = None
+
+    def fit(self, X, y):
+        self.X_train_ = X
+        K_train = cosine_similarity(X, X)
+        self.model_ = SVC(C=self.C, kernel='precomputed', probability=True)
+        self.model_.fit(K_train, y)
+        return self
+
+    def predict(self, X):
+        K_test = cosine_similarity(X, self.X_train_)
+        return self.model_.predict(K_test)
+
+    def predict_proba(self, X):
+        K_test = cosine_similarity(X, self.X_train_)
+        return self.model_.predict_proba(K_test)

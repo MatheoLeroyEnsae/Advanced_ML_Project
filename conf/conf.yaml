@@ -20,3 +20,16 @@ p_true_hint: True
 
 use_all_generations: False
 use_num_generations: 1
+
+param_grid:
+  - pca: ["PCA_0.90", "PCA_0.70", "passthrough"]
+    clf: ["LogisticRegression"]
+    clf__C: [0.1, 1.0]
+  - pca: ["PCA_0.90", "PCA_0.70"]
+    clf: ["SVC"]
+    clf__C: [0.1, 1.0]
+    clf__kernel: ["linear", "rbf"]
+    clf__gamma: ["auto"]
+  - pca: ["passthrough"]
+    clf: ["CosineSVM"]
+    clf__C: [0.1, 1.0]
